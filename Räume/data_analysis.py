@@ -66,7 +66,7 @@ def filter_data(data):
     # Filterung der Daten auf Montag bis Freitag und 08:00 bis 18:00 Uhr
     data['_time'] = pd.to_datetime(data['_time'], utc=True).dt.tz_convert('Europe/Berlin')
     data = data[data['_time'].dt.weekday < 5]  # Montag=0, Sonntag=6
-    data = data.between_time('08:00', '18:00')
+    data = data.set_index('_time').between_time('08:00', '18:00').reset_index()
 
     # Pausenzeiten ausschließen
     pauses = [
@@ -77,7 +77,7 @@ def filter_data(data):
         ('17:15', '17:30')
     ]
     for start, end in pauses:
-        data = data[~data['_time'].between(start, end)]
+        data = data[~((data['_time'].dt.time >= pd.to_datetime(start).time()) & (data['_time'].dt.time <= pd.to_datetime(end).time()))]
 
     return data
 
@@ -85,7 +85,9 @@ def filter_data(data):
 def plot_data(data, title, plot_file_path):
     # Daten plotten
     plt.figure(figsize=(10, 6))
-    plt.plot(data['_time'], data['_value'], marker='o', linestyle='-', color='b')
+    for room, group in data.groupby('room'):
+        plt.plot(group['_time'], group['_value'], marker='o', linestyle='-', label=f'Room {room}')
+
     plt.title(title)
     plt.xlabel('Zeitstempel')
     plt.ylabel('Gerätezählung')
@@ -133,3 +135,4 @@ def analyze_room(data, room):
     room_data = preprocess_data(room_data)
 
     return room_data
+
