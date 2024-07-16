@@ -3,42 +3,16 @@ import matplotlib.pyplot as plt
 import os
 
 def load_data(file_path):
-    # CSV-Datei laden
-    data = pd.read_csv(file_path, skiprows=[0, 1, 2])  # Überspringe die ersten drei Zeilen mit Metadaten
-
-    # Entferne leere Spalten
-    data = data.dropna(axis=1, how='all')
-
-    # Überprüfen der Anzahl der Spalten
-    print(f"Die Datei enthält {len(data.columns)} Spalten.")
-    print(f"Spaltennamen: {list(data.columns)}")
-
-    # Erwarten wir bestimmte Spaltennamen, oder benennen wir die vorhandenen Spalten
-    expected_columns = ['table', '_start', '_stop', '_time', '_value', '_field', '_measurement', 'room']
-    if len(data.columns) == len(expected_columns):
-        data.columns = expected_columns
-    else:
-        # Wenn die Anzahl der Spalten nicht übereinstimmt, zeigen wir die ersten Zeilen der Datei zur Diagnose an
-        print("Erste Zeilen der CSV-Datei zur Diagnose:")
-        print(data.head())
-        raise ValueError(f"Erwartete {len(expected_columns)} Spalten, aber CSV enthält {len(data.columns)} Spalten.")
-
-    # Konvertiere Datentypen
-    data['table'] = pd.to_numeric(data['table'], errors='coerce')
-    data['_start'] = data['_start'].astype(str)
-    data['_stop'] = data['_stop'].astype(str)
-    data['_time'] = pd.to_datetime(data['_time'], errors='coerce')
-    data['_value'] = pd.to_numeric(data['_value'], errors='coerce')
-    data['_field'] = data['_field'].astype(str)
-    data['_measurement'] = data['_measurement'].astype(str)
-    data['room'] = data['room'].astype(str)
-
+    # Daten laden
+    data = pd.read_csv(file_path, parse_dates=['_start', '_stop', '_time'])
+    data.columns = ['result', 'table', '_start', '_stop', '_time', '_value', '_field', '_measurement', 'room']
     return data
+
 def preprocess_data(data):
 
 
-    # '_time' Spalte in datetime konvertieren und Zeitzone korrekt setzen
-    data['_time'] = pd.to_datetime(data['_time'], errors='coerce', utc=True)
+    # '_time' Spalte in datetime konvertieren
+    data['_time'] = pd.to_datetime(data['_time'], errors='coerce')
 
     # '_value' in numerischen Typ konvertieren und Fehler ignorieren
     data['_value'] = pd.to_numeric(data['_value'], errors='coerce')
@@ -64,7 +38,7 @@ def preprocess_data(data):
 
 def filter_data(data):
     # Filterung der Daten auf Montag bis Freitag und 08:00 bis 18:00 Uhr
-    data['_time'] = pd.to_datetime(data['_time'], utc=True).dt.tz_convert('Europe/Berlin')
+    data['_time'] = pd.to_datetime(data['_time'])
     data = data[data['_time'].dt.weekday < 5]  # Montag=0, Sonntag=6
     data = data.between_time('08:00', '18:00')
 
@@ -87,9 +61,12 @@ def plot_data(data, title, plot_file_path):
     plt.figure(figsize=(10, 6))
     plt.plot(data['_time'], data['_value'], marker='o', linestyle='-', color='b')
     plt.title(title)
+    plt.title(title)
     plt.xlabel('Zeitstempel')
     plt.ylabel('Gerätezählung')
     plt.grid(True)
+    plt.xticks(rotation=45)
+    plt.tight_layout()
 
     # Plot speichern
     plt.savefig(plot_file_path)
@@ -115,15 +92,12 @@ def create_monthly_plots(data, output_dir, room):
     data['month'] = data['_time'].dt.to_period('M')
     for month, group in data.groupby('month'):
         plot_title = f'Gerätezählung im {month} in {room}'
-        plot_file_path = f'{output_dir}/geraetezaehlung_{month}.png'
-        plot_data(group, plot_title, plot_file_path)
+    plot_file_path = f'{output_dir}/geraetezaehlung_{month}.png'
+    plot_data(group, plot_title, plot_file_path)
 
 def create_daily_plots(data, output_dir, room):
-    data['date'] = data['_time'].dt.date
-    for date, group in data.groupby('date'):
-        plot_title = f'Gerätezählung am {date} in {room}'
-        plot_file_path = f'{output_dir}/geraetezaehlung_{date}.png'
-        plot_data(group, plot_title, plot_file_path)
+    create_plots_by_period(data, 'YearMonthDay', 'D', output_dir, room,
+                           'Gerätezählung am {period} in Raum {room}', 'geraetezaehlung_{period}.png')
 
 def analyze_room(data, room):
     # Daten für den spezifischen Raum filtern

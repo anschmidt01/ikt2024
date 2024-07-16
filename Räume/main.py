@@ -22,7 +22,7 @@ for key, output_dir in output_dirs.items():
         os.makedirs(output_dir)
 
 for room in rooms:
-    room_data = data[data['Room'] == room]
+    room_data = data[data['room'] == room]
 
     # Daten vorverarbeiten
     room_data = preprocess_data(room_data)
